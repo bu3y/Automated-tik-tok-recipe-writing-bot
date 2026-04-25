@@ -7,12 +7,12 @@ from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
 
 # ==========================================
-# CONFIGURACIÓN — lee variables de entorno
+# CONFIGURACIÓN
 # ==========================================
-GROQ_API_KEY    = os.environ.get("GROQ_API_KEY")
-TELEGRAM_TOKEN  = os.environ.get("TELEGRAM_TOKEN")
-RUTA_CARPETA    = "/tmp"  # En Railway usamos /tmp
-FFMPEG          = "ffmpeg"  # En Linux ya viene en PATH
+GROQ_API_KEY   = os.environ.get("GROQ_API_KEY")
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
+RUTA_CARPETA   = "/tmp"
+FFMPEG         = "ffmpeg"
 
 client_groq = Groq(api_key=GROQ_API_KEY)
 
@@ -122,7 +122,6 @@ def limpiar(archivos):
             os.remove(f)
 
 def procesar_link(url, prefijo):
-    """Lógica principal: audio → visión como fallback"""
     ruta_mp3, ruta_video, frames = None, None, []
     try:
         ruta_mp3 = extraer_audio(url, prefijo)
@@ -147,7 +146,6 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
     texto = update.message.text.strip()
     user_id = update.message.from_user.id
 
-    # Detectar si es un link de TikTok
     if "tiktok.com" not in texto and "vt.tiktok.com" not in texto:
         await update.message.reply_text(
             "👋 ¡Hola! Soy *El Pinche de Cocina*.\n\n"
