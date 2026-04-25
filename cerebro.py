@@ -2,8 +2,9 @@ import os
 import base64
 import subprocess
 import yt_dlp
+import asyncio
 from groq import Groq
-from telegram import Update
+from telegram import Update, Bot
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
 
 # ==========================================
@@ -168,13 +169,19 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     app = Application.builder().token(TELEGRAM_TOKEN).build()
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, manejar_mensaje))
-    print("🤖 Bot corriendo con webhook...")
+
+    WEBHOOK_URL = f"https://{RENDER_URL}/webhook"
+    PORT = int(os.environ.get("PORT", 8443))
+
+    print(f"🤖 Bot corriendo con webhook en: {WEBHOOK_URL}")
 
     app.run_webhook(
         listen="0.0.0.0",
-        port=int(os.environ.get("PORT", 8443)),
+        port=PORT,
         url_path="/webhook",
-        webhook_url=f"https://{RENDER_URL}/webhook"
+        webhook_url=WEBHOOK_URL,
+        secret_token=None,
+        drop_pending_updates=True  # ← limpia updates viejos al arrancar
     )
 
 if __name__ == "__main__":
