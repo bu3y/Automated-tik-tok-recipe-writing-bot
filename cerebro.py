@@ -11,7 +11,7 @@ from telegram.ext import Application, MessageHandler, filters, ContextTypes
 # ==========================================
 GROQ_API_KEY   = os.environ.get("GROQ_API_KEY")
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
-RENDER_URL     = os.environ.get("RENDER_URL")  # ← nueva variable
+RENDER_URL     = os.environ.get("RENDER_URL")
 RUTA_CARPETA   = "/tmp"
 FFMPEG         = "ffmpeg"
 
@@ -170,10 +170,10 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, manejar_mensaje))
     print("🤖 Bot corriendo con webhook...")
 
-    # ✅ Webhook en lugar de polling — sin conflictos posibles
     app.run_webhook(
         listen="0.0.0.0",
         port=int(os.environ.get("PORT", 8443)),
+        url_path="/webhook",
         webhook_url=f"https://{RENDER_URL}/webhook"
     )
 
