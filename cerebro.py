@@ -1,10 +1,10 @@
 import os
 import base64
 import subprocess
+import urllib.request
 import yt_dlp
-import asyncio
 from groq import Groq
-from telegram import Update, Bot
+from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
 
 # ==========================================
@@ -12,7 +12,7 @@ from telegram.ext import Application, MessageHandler, filters, ContextTypes
 # ==========================================
 GROQ_API_KEY   = os.environ.get("GROQ_API_KEY")
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
-RENDER_URL     = os.environ.get("RENDER_URL")
+RENDER_URL     = os.environ.get("RENDER_URL", "").strip()
 RUTA_CARPETA   = "/tmp"
 FFMPEG         = "ffmpeg"
 
@@ -41,6 +41,7 @@ def extraer_audio(url, prefijo):
     return ruta_mp3
 
 def descargar_video(url, prefijo):
+    """Descarga video o carrusel de fotos"""
     ruta_video = os.path.join(RUTA_CARPETA, f"video_{prefijo}.mp4")
     opciones = {
         'format': 'best',
@@ -50,6 +51,22 @@ def descargar_video(url, prefijo):
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
     }
     with yt_dlp.YoutubeDL(opciones) as ydl:
+        info = ydl.extract_info(url, download=False)
+
+        # ✅ Detectar si es carrusel de fotos
+        if info.get('_type') == 'playlist' or isinstance(info.get('entries'), list):
+            frames = []
+            entries = info.get('entries', [info])
+            for i, entry in enumerate(entries):
+                ruta_img = os.path.join(RUTA_CARPETA, f"frame_{prefijo}_{i}.jpg")
+                img_url = entry.get('url') or entry.get('thumbnail')
+                if img_url:
+                    urllib.request.urlretrieve(img_url, ruta_img)
+                    if os.path.exists(ruta_img):
+                        frames.append(ruta_img)
+            return frames  # ← devuelve lista de imágenes directamente
+
+        # Es video normal
         ydl.download([url])
     return ruta_video
 
@@ -128,13 +145,22 @@ def procesar_link(url, prefijo):
     try:
         ruta_mp3 = extraer_audio(url, prefijo)
         texto = transcribir_audio(ruta_mp3)
+
         if texto and len(texto) > 30:
             return dar_formato_receta(texto)
         else:
-            ruta_video = descargar_video(url, prefijo)
-            frames = extraer_frames(ruta_video, prefijo)
+            resultado = descargar_video(url, prefijo)
+
+            # ✅ Si devolvió lista, son fotos del carrusel
+            if isinstance(resultado, list):
+                frames = resultado
+            else:
+                ruta_video = resultado
+                frames = extraer_frames(ruta_video, prefijo)
+
             if not frames:
-                raise Exception("No se pudieron extraer frames.")
+                raise Exception("No se pudieron extraer imágenes.")
+
             return leer_receta_visual(frames)
     finally:
         limpiar([ruta_mp3, ruta_video] + frames)
@@ -181,7 +207,7 @@ def main():
         url_path="/webhook",
         webhook_url=WEBHOOK_URL,
         secret_token=None,
-        drop_pending_updates=True  # ← limpia updates viejos al arrancar
+        drop_pending_updates=True
     )
 
 if __name__ == "__main__":
