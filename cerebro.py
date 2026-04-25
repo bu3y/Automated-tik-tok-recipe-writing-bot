@@ -41,7 +41,6 @@ def extraer_audio(url, prefijo):
     return ruta_mp3
 
 def descargar_video(url, prefijo):
-    """Descarga video o carrusel de fotos"""
     ruta_video = os.path.join(RUTA_CARPETA, f"video_{prefijo}.mp4")
     opciones = {
         'format': 'best',
@@ -64,9 +63,8 @@ def descargar_video(url, prefijo):
                     urllib.request.urlretrieve(img_url, ruta_img)
                     if os.path.exists(ruta_img):
                         frames.append(ruta_img)
-            return frames  # ← devuelve lista de imágenes directamente
+            return frames
 
-        # Es video normal
         ydl.download([url])
     return ruta_video
 
@@ -143,25 +141,31 @@ def limpiar(archivos):
 def procesar_link(url, prefijo):
     ruta_mp3, ruta_video, frames = None, None, []
     try:
-        ruta_mp3 = extraer_audio(url, prefijo)
-        texto = transcribir_audio(ruta_mp3)
+        # ✅ Detectar carrusel por URL y saltarse el audio
+        es_carrusel = "/photo/" in url
 
-        if texto and len(texto) > 30:
-            return dar_formato_receta(texto)
+        if not es_carrusel:
+            try:
+                ruta_mp3 = extraer_audio(url, prefijo)
+                texto = transcribir_audio(ruta_mp3)
+                if texto and len(texto) > 30:
+                    return dar_formato_receta(texto)
+            except Exception:
+                pass  # Si falla el audio, intentamos visual
+
+        # Fallback visual o carrusel directo
+        resultado = descargar_video(url, prefijo)
+
+        if isinstance(resultado, list):
+            frames = resultado
         else:
-            resultado = descargar_video(url, prefijo)
+            ruta_video = resultado
+            frames = extraer_frames(ruta_video, prefijo)
 
-            # ✅ Si devolvió lista, son fotos del carrusel
-            if isinstance(resultado, list):
-                frames = resultado
-            else:
-                ruta_video = resultado
-                frames = extraer_frames(ruta_video, prefijo)
+        if not frames:
+            raise Exception("No se pudieron extraer imágenes.")
 
-            if not frames:
-                raise Exception("No se pudieron extraer imágenes.")
-
-            return leer_receta_visual(frames)
+        return leer_receta_visual(frames)
     finally:
         limpiar([ruta_mp3, ruta_video] + frames)
 
